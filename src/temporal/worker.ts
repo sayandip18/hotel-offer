@@ -1,12 +1,18 @@
-import { Worker } from "@temporalio/worker";
+import { Worker, NativeConnection } from "@temporalio/worker";
 import { fetchSupplierA } from "./activities/fetchSupplierA";
 import { fetchSupplierB } from "./activities/fetchSupplierB";
 import { dedupeHotels } from "./activities/dedupeHotels";
 import { saveHotelsToCache } from "../service/hotelService";
 
 async function run() {
+  const connection = await NativeConnection.connect({
+    address: process.env.TEMPORAL_ADDRESS || "localhost:7233",
+  });
+
   const worker = await Worker.create({
-    workflowsPath: require.resolve("./workflows/hotelWorkflow"),
+    connection,
+    namespace: process.env.TEMPORAL_NAMESPACE || "default",
+    workflowsPath: require.resolve("./workflow/hotelWorkflow"),
     activities: {
       fetchSupplierA,
       fetchSupplierB,

@@ -1,11 +1,15 @@
 {
   "name": "hotel-offer",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:worker": "tsx watch src/temporal/worker.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/temporal/worker.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",

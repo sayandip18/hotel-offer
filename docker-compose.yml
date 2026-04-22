@@ -1,0 +1,73 @@
+version: "3.9"
+
+networks:
+  hotel-net:
+    driver: bridge
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - hotel-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    ports:
+      - "7233:7233"
+    networks:
+      - hotel-net
+    environment:
+      - DB=sqlite
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 7233 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    networks:
+      - hotel-net
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=default
+      - TEMPORAL_TASK_QUEUE=hotel-offers
+      - SUPPLIER_BASE_URL=http://app:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["npm", "run", "start:worker"]
+    networks:
+      - hotel-net
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=default
+      - TEMPORAL_TASK_QUEUE=hotel-offers
+      - SUPPLIER_BASE_URL=http://app:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      app:
+        condition: service_started
+    restart: unless-stopped
