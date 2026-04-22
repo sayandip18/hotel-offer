@@ -1,4 +1,6 @@
 import { Router, type Request, type Response } from "express";
+import { getTemporalClient } from "../temporal/client";
+import { getHotelsFromCache, filterByPrice } from "../service/hotelService";
 import { type HotelResult } from "../types/hotel";
 
 const router = Router();
@@ -14,13 +16,28 @@ router.get("/", async (req: Request, res: Response) => {
   const max = maxPrice ? parseFloat(maxPrice as string) : undefined;
 
   try {
-    // If price filter requested, return from Redis first
+    // Hit Redis first
+    if (min !== undefined || max !== undefined) {
+      const cached = await getHotelsFromCache(city);
+      if (cached) {
+        const filtered = filterByPrice(cached, min, max);
+        return res.status(200).json(filtered);
+      }
+    }
 
-    // If cache miss, trigger Temporal
+    // On cache miss, trigger Temporal
+    const client = await getTemporalClient();
+    const handle = await client.workflow.start("hotelWorkflow", {
+      taskQueue: process.env.TEMPORAL_TASK_QUEUE || "hotel-offers",
+      workflowId: `hotel-offers-${city}-${Date.now()}`,
+      args: [city],
+    });
 
-    // Finally, apply price filter on result if needed
+    const result: HotelResult[] = await handle.result();
 
-    return res.status(200).json([]);
+    const finalResult = filterByPrice(result, min, max);
+
+    return res.status(200).json(finalResult);
   } catch (err: any) {
     console.error("[/api/hotels] Error:", err.message);
     return res.status(500).json({
