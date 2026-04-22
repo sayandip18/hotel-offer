@@ -17,6 +17,20 @@ services:
       timeout: 3s
       retries: 5
 
+  postgresql:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    networks:
+      - hotel-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   temporal:
     image: temporalio/auto-setup:latest
     ports:
@@ -24,7 +38,14 @@ services:
     networks:
       - hotel-net
     environment:
-      - DB=sqlite
+      - DB=postgres12_pgx
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+    depends_on:
+      postgresql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 7233 || exit 1"]
       interval: 5s

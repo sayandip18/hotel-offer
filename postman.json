@@ -1,0 +1,363 @@
+{
+  "info": {
+    "name": "Hotel Offer Orchestrator",
+    "description": "API collection for testing the Hotel Offer Orchestrator service. Covers the public API, mock supplier endpoints, and health check.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Returns the status of Supplier A, Supplier B, and Redis. Returns 200 when all services are healthy, 503 when any are degraded."
+          },
+          "response": [
+            {
+              "name": "All services healthy",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"ok\",\n  \"services\": {\n    \"supplierA\": \"ok\",\n    \"supplierB\": \"ok\",\n    \"redis\": \"ok\"\n  }\n}"
+            },
+            {
+              "name": "Degraded — supplier or Redis down",
+              "status": "Service Unavailable",
+              "code": 503,
+              "body": "{\n  \"status\": \"degraded\",\n  \"services\": {\n    \"supplierA\": \"error\",\n    \"supplierB\": \"ok\",\n    \"redis\": \"ok\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Hotels API",
+      "item": [
+        {
+          "name": "Get hotels — Delhi (all results)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/hotels?city=delhi",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "delhi"
+                }
+              ]
+            },
+            "description": "Returns deduplicated best-price hotel list for Delhi. Deduplication picks the cheaper offer per hotel name across both suppliers."
+          },
+          "response": [
+            {
+              "name": "Success — deduplicated Delhi hotels",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"name\": \"Holtin\",      \"price\": 5340,  \"supplier\": \"Supplier B\", \"commissionPct\": 20 },\n  { \"name\": \"Radison\",     \"price\": 5900,  \"supplier\": \"Supplier A\", \"commissionPct\": 13 },\n  { \"name\": \"Grand Hyatt\", \"price\": 8100,  \"supplier\": \"Supplier B\", \"commissionPct\": 14 },\n  { \"name\": \"Lemon Tree\",  \"price\": 3200,  \"supplier\": \"Supplier A\", \"commissionPct\": 8  },\n  { \"name\": \"Taj Palace\",  \"price\": 12000, \"supplier\": \"Supplier A\", \"commissionPct\": 18 },\n  { \"name\": \"Bloom Suites\",\"price\": 4500,  \"supplier\": \"Supplier B\", \"commissionPct\": 9  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get hotels — Delhi (price filter ₹3000–₹6000)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/hotels?city=delhi&minPrice=3000&maxPrice=6000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "delhi"
+                },
+                {
+                  "key": "minPrice",
+                  "value": "3000"
+                },
+                {
+                  "key": "maxPrice",
+                  "value": "6000"
+                }
+              ]
+            },
+            "description": "Returns deduplicated Delhi hotels filtered to prices between ₹3000 and ₹6000. Filter is applied after reading from Redis."
+          },
+          "response": [
+            {
+              "name": "Success — filtered results",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"name\": \"Holtin\",      \"price\": 5340, \"supplier\": \"Supplier B\", \"commissionPct\": 20 },\n  { \"name\": \"Radison\",     \"price\": 5900, \"supplier\": \"Supplier A\", \"commissionPct\": 13 },\n  { \"name\": \"Lemon Tree\",  \"price\": 3200, \"supplier\": \"Supplier A\", \"commissionPct\": 8  },\n  { \"name\": \"Bloom Suites\",\"price\": 4500, \"supplier\": \"Supplier B\", \"commissionPct\": 9  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get hotels — Delhi (minPrice only, ₹8000+)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/hotels?city=delhi&minPrice=8000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "delhi"
+                },
+                {
+                  "key": "minPrice",
+                  "value": "8000"
+                }
+              ]
+            },
+            "description": "Returns only hotels priced ₹8000 and above."
+          },
+          "response": [
+            {
+              "name": "Success — high-price results",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"name\": \"Grand Hyatt\", \"price\": 8100,  \"supplier\": \"Supplier B\", \"commissionPct\": 14 },\n  { \"name\": \"Taj Palace\",  \"price\": 12000, \"supplier\": \"Supplier A\", \"commissionPct\": 18 }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get hotels — Mumbai",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/hotels?city=mumbai",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "mumbai"
+                }
+              ]
+            },
+            "description": "Returns deduplicated best-price hotel list for Mumbai."
+          },
+          "response": [
+            {
+              "name": "Success — deduplicated Mumbai hotels",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"name\": \"Novotel\",      \"price\": 6900, \"supplier\": \"Supplier B\", \"commissionPct\": 13 },\n  { \"name\": \"ITC Maratha\",  \"price\": 9800, \"supplier\": \"Supplier A\", \"commissionPct\": 16 },\n  { \"name\": \"Sea Princess\", \"price\": 5600, \"supplier\": \"Supplier B\", \"commissionPct\": 7  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get hotels — unknown city (empty result)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/hotels?city=unknown",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "unknown"
+                }
+              ]
+            },
+            "description": "City that exists in neither supplier. Expects an empty array."
+          },
+          "response": [
+            {
+              "name": "Empty result",
+              "status": "OK",
+              "code": 200,
+              "body": "[]"
+            }
+          ]
+        },
+        {
+          "name": "Get hotels — missing city param (400)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/hotels",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hotels"]
+            },
+            "description": "Omits the required city query param. Expects a 400 Bad Request."
+          },
+          "response": [
+            {
+              "name": "Bad Request",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"city query param is required\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mock Suppliers (internal)",
+      "item": [
+        {
+          "name": "Supplier A — Delhi hotels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/supplierA/hotels?city=delhi",
+              "host": ["{{baseUrl}}"],
+              "path": ["supplierA", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "delhi"
+                }
+              ]
+            },
+            "description": "Raw static data from Supplier A for Delhi. Returns SupplierHotel objects (includes hotelId)."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"hotelId\": \"a1\", \"name\": \"Holtin\",      \"price\": 6000,  \"city\": \"delhi\", \"commissionPct\": 10 },\n  { \"hotelId\": \"a2\", \"name\": \"Radison\",     \"price\": 5900,  \"city\": \"delhi\", \"commissionPct\": 13 },\n  { \"hotelId\": \"a3\", \"name\": \"Grand Hyatt\", \"price\": 8500,  \"city\": \"delhi\", \"commissionPct\": 15 },\n  { \"hotelId\": \"a4\", \"name\": \"Taj Palace\",  \"price\": 12000, \"city\": \"delhi\", \"commissionPct\": 18 },\n  { \"hotelId\": \"a5\", \"name\": \"Lemon Tree\",  \"price\": 3200,  \"city\": \"delhi\", \"commissionPct\": 8  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Supplier A — Mumbai hotels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/supplierA/hotels?city=mumbai",
+              "host": ["{{baseUrl}}"],
+              "path": ["supplierA", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "mumbai"
+                }
+              ]
+            },
+            "description": "Raw static data from Supplier A for Mumbai."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"hotelId\": \"a6\", \"name\": \"Novotel\",     \"price\": 7100, \"city\": \"mumbai\", \"commissionPct\": 12 },\n  { \"hotelId\": \"a7\", \"name\": \"ITC Maratha\", \"price\": 9800, \"city\": \"mumbai\", \"commissionPct\": 16 }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Supplier A — missing city param (400)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/supplierA/hotels",
+              "host": ["{{baseUrl}}"],
+              "path": ["supplierA", "hotels"]
+            },
+            "description": "Omits city param. Expects 400."
+          },
+          "response": [
+            {
+              "name": "Bad Request",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{ \"error\": \"city query param is required\" }"
+            }
+          ]
+        },
+        {
+          "name": "Supplier B — Delhi hotels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/supplierB/hotels?city=delhi",
+              "host": ["{{baseUrl}}"],
+              "path": ["supplierB", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "delhi"
+                }
+              ]
+            },
+            "description": "Raw static data from Supplier B for Delhi. Returns SupplierHotel objects (includes hotelId)."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"hotelId\": \"b1\", \"name\": \"Holtin\",       \"price\": 5340, \"city\": \"delhi\", \"commissionPct\": 20 },\n  { \"hotelId\": \"b2\", \"name\": \"Radison\",      \"price\": 6200, \"city\": \"delhi\", \"commissionPct\": 11 },\n  { \"hotelId\": \"b3\", \"name\": \"Grand Hyatt\",  \"price\": 8100, \"city\": \"delhi\", \"commissionPct\": 14 },\n  { \"hotelId\": \"b4\", \"name\": \"Bloom Suites\", \"price\": 4500, \"city\": \"delhi\", \"commissionPct\": 9  },\n  { \"hotelId\": \"b5\", \"name\": \"Lemon Tree\",   \"price\": 3500, \"city\": \"delhi\", \"commissionPct\": 10 }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Supplier B — Mumbai hotels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/supplierB/hotels?city=mumbai",
+              "host": ["{{baseUrl}}"],
+              "path": ["supplierB", "hotels"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "mumbai"
+                }
+              ]
+            },
+            "description": "Raw static data from Supplier B for Mumbai."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  { \"hotelId\": \"b6\", \"name\": \"Novotel\",      \"price\": 6900, \"city\": \"mumbai\", \"commissionPct\": 13 },\n  { \"hotelId\": \"b7\", \"name\": \"Sea Princess\", \"price\": 5600, \"city\": \"mumbai\", \"commissionPct\": 7  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Supplier B — missing city param (400)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/supplierB/hotels",
+              "host": ["{{baseUrl}}"],
+              "path": ["supplierB", "hotels"]
+            },
+            "description": "Omits city param. Expects 400."
+          },
+          "response": [
+            {
+              "name": "Bad Request",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{ \"error\": \"city query param is required\" }"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
